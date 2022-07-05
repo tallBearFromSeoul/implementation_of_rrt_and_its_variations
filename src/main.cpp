@@ -33,13 +33,20 @@ int main(int argc, char* argv[]) {
 	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op4, 1.f, obstacles, Objet::Behaviour::NEGDIAG);
 
 	int n_obs = obstacles.size();
-
 	RRTStar *rrt = new RRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
 	while (rrt->build_status()!=RRT::Status::REACHED) {
 		delete rrt;
 		std::cout<<"reinstantiating rrtstar\n";
 		rrt = new RRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
 	}
+	/*
+	BiRRTStar *rrt = new BiRRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
+	while (rrt->build_status()!=RRT::Status::REACHED) {
+		delete rrt;
+		std::cout<<"reinstantiating rrtstar\n";
+		rrt = new BiRRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
+	}
+	*/
 	std::vector<NodePtr> *path_ = rrt->path();
 	Optimizer *opt = new Optimizer(N, ts, lr);
 	std::vector<VehiclePtr> vehicles;
@@ -52,7 +59,7 @@ int main(int argc, char* argv[]) {
 	Vec2f pf {45.f, 45.f};
 	int prev = 0;
 
-	while (true) {
+	while (!pangolin::ShouldQuit()) {
 		if (path_->size() < N+1) {
 			delete opt;
 			prev = path_->size()-1;

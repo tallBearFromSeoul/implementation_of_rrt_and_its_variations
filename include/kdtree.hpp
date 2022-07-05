@@ -10,7 +10,10 @@ class kdTree {
 		kdTree(const std::vector<NodePtr> &__nodes) {
 			build(__nodes);
 		};
-		
+		void set_root(const TreeNodePtr &__kd_root) {
+			if (_kd_root == nullptr)
+				_kd_root = __kd_root;
+		}
 		void build(const std::vector<NodePtr> &__nodes) {
 			_k = __nodes[0]->dims();
 			for (int i=0; i<__nodes.size(); i++) {

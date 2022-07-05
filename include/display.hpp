@@ -81,7 +81,7 @@ class Display_Pangolin {
 				float y1 = _pred_states.col(j-1)(1);
 				float x2 = _pred_states.col(j)(0);
 				float y2 = _pred_states.col(j)(1);
-				glColor3f(1.f,0.3f,0.1f);
+				glColor3f(0.f,0.3f,0.1f);
 				glPointSize(15.f);
 				glBegin(GL_LINES);
 				glVertex3f(x1, y1, 0);
@@ -122,26 +122,7 @@ class Display_Pangolin {
 			draw_vehicle(_state);
 			draw_predictions(_pred_states);
 			draw_trajectory(_trajectory);
-			glColor3f(0,0.5,0.5);
 			pangolin::FinishFrame();
-		}
-
-		void render_3d(const Vec4f &__state) {
-			//glEnable(GL_LIGHTING);
-			//glEnable(GL_COLOR_MATERIAL);
-			//glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-			glEnable(GL_DEPTH_TEST);
-			s_cam = pangolin::OpenGlRenderState(
-					pangolin::ProjectionMatrix(w, h, p0, p0, w/2, h/2, 0.01, 1000),
-					pangolin::ModelViewLookAt(-0.5,0,1.0,0,0,1.0,0,0,1));
-			pangolin::Handler3D handler(s_cam);
-			pangolin::View& d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, 0.0, 1.0, w/h).SetHandler(&handler);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			d_cam.Activate(s_cam);
-			glColor3f(1.0f,0.f,0.f);
-			draw_vehicle_3d(__state);
-			pangolin::FinishFrame();
-
 		}
 
 		void draw_circle(float _x, float _y, float _z, float _r) {
@@ -184,48 +165,9 @@ class Display_Pangolin {
 			glVertex3f(c1x, c1y, 0);
 			glEnd();
 		};
-
-		void draw_vehicle_3d(const Vec4f &__state) {
-			float cx = __state(0);
-			float cy = __state(1);
-			float c1x = __state(0)-0.7f;
-			float c1y = __state(1)-0.8f;
-			float c2x = __state(0)+0.7f;
-			float c2y = __state(1)+0.8f;
-			glPointSize(15.f);
-			glBegin(GL_LINES);
-			glVertex3f(c1x, c1y, 0);
-			glVertex3f(c1x, c2y, 0);
-			glVertex3f(c1x, c2y, 0);
-			glVertex3f(c2x, c2y, 0);
-			glVertex3f(c2x, c2y, 0);
-			glVertex3f(c2x, c1y, 0);
-			glVertex3f(c2x, c1y, 0);
-			glVertex3f(c1x, c1y, 0);
-			
-			glVertex3f(c1x, c1y, 1.9f);
-			glVertex3f(c1x, c2y, 1.9f);
-			glVertex3f(c1x, c2y, 1.9f);
-			glVertex3f(c2x, c2y, 1.9f);
-			glVertex3f(c2x, c2y, 1.9f);
-			glVertex3f(c2x, c1y, 1.9f);
-			glVertex3f(c2x, c1y, 1.9f);
-			glVertex3f(c1x, c1y, 1.9f);
-
-			glVertex3f(c1x, c1y, 0);
-			glVertex3f(c1x, c1y, 1.9f);
-			glVertex3f(c1x, c2y, 0);
-			glVertex3f(c1x, c2y, 1.9f);
-			glVertex3f(c2x, c2y, 0);
-			glVertex3f(c2x, c2y, 1.9f);
-			glVertex3f(c2x, c1y, 0);
-			glVertex3f(c2x, c1y, 1.9f);
-			glEnd();
-		}
-
 		void draw_path(const std::vector<NodePtr> *__path) {
 			for (int i=0; i<__path->size()-1; i++) {
-				glColor3f(0.3f,1.0f,0.f);
+				glColor3f(1.f,1.f,0.f);
 				glPointSize(15.f);
 				draw_edge(__path->at(i), __path->at(i+1));
 			}
