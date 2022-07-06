@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
 	RowVec2f op2 = {8,11};
 	RowVec2f op3 = {3,10};
 	RowVec2f op4 = {15,20};
+	RowVec2f op5 = {5,5};
 	Display_Pangolin *dp = new Display_Pangolin(1920,1080,"s");
 	
 	std::vector<ObsPtr> obstacles;
@@ -31,23 +32,25 @@ int main(int argc, char* argv[]) {
 	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op2, 1.f, obstacles, Objet::Behaviour::HORZ);
 	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op3, 1.f, obstacles, Objet::Behaviour::DIAG);
 	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op4, 1.f, obstacles, Objet::Behaviour::NEGDIAG);
+	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op5, 1.f, obstacles, Objet::Behaviour::DIAG);
+
 
 	int n_obs = obstacles.size();
+	/*
 	RRTStar *rrt = new RRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
 	while (rrt->build_status()!=RRT::Status::REACHED) {
 		delete rrt;
 		std::cout<<"reinstantiating rrtstar\n";
 		rrt = new RRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
 	}
-	/*
-	BiRRTStar *rrt = new BiRRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
+	*/
+	BRRTStar *rrt = new BRRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
 	while (rrt->build_status()!=RRT::Status::REACHED) {
 		delete rrt;
 		std::cout<<"reinstantiating rrtstar\n";
-		rrt = new BiRRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
+		rrt = new BRRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
 	}
-	*/
-	std::vector<NodePtr> *path_ = rrt->path();
+	std::vector<NodePtr> path_ = *rrt->path();
 	Optimizer *opt = new Optimizer(N, ts, lr);
 	std::vector<VehiclePtr> vehicles;
 	factory->createVehicle(Objet::Shape::CIRCLE, ts, lr, state_init, vehicles);
@@ -60,16 +63,16 @@ int main(int argc, char* argv[]) {
 	int prev = 0;
 
 	while (!pangolin::ShouldQuit()) {
-		if (path_->size() < N+1) {
+		if (path_.size() < N+1) {
 			delete opt;
-			prev = path_->size()-1;
-			opt = new Optimizer(path_->size()-1, ts, lr);
-		} else if (prev != N && path_->size() >= N+1) {
+			prev = path_.size()-1;
+			opt = new Optimizer(path_.size()-1, ts, lr);
+		} else if (prev != N && path_.size() >= N+1) {
 			delete opt;
 			prev = N;
 			opt = new Optimizer(N, ts, lr);
 		}
-		opt->optimize(state, path_, obstacles);
+		opt->optimize(state, &path_, obstacles);
 		Vec2f u_opt = opt->input_opt();
 		for (ObsPtr &__obs : obstacles) {
 			__obs->update();
@@ -77,13 +80,8 @@ int main(int argc, char* argv[]) {
 		state = vehicle->update(u_opt);	
 		pi = state.block(0,0,2,1);
 		trajectory.push_back(state);
-		std::cout<<"before rrt update()\n";
-		RRT::Status status_update = rrt->update(pi);
-		std::cout<<"path size : "<<path_->size()<<"\n";
-		std::cout<<"after rrt update()\n";
-		path_ = rrt->path();
-		std::cout<<"status update : "<<status_update<<"\n";
-		dp->render(rrt, path_, trajectory, state, opt->pred_states(), obstacles);
+		path_ = rrt->update(pi);
+		dp->render(rrt, &path_, trajectory, state, opt->pred_states(), obstacles);
 	}
 	return 0;
 }

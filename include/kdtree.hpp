@@ -7,6 +7,8 @@ class kdTree {
 	public:
 
 		kdTree(int __k) : _k(__k) {};
+		kdTree(int __k, const TreeNodePtr &__root) : _k(__k), _kd_root(__root) {};
+
 		kdTree(const std::vector<NodePtr> &__nodes) {
 			build(__nodes);
 		};

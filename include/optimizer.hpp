@@ -244,7 +244,7 @@ class Optimizer {
 			// with forward mode for Jacobian (seems to be faster for this case).
 			options += "Sparse  true        forward\n";
 			// turn off any printing
-			options += "Integer print_level 5\n";
+			options += "Integer print_level 0\n";
 			options += "String  sb        yes\n";
 			// maximum number of iterations
 			options += "Integer max_iter    50\n";

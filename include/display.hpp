@@ -31,7 +31,9 @@ class Display_Pangolin {
 		double up_z = 0;
 		double p0 = 100;
 
-		double z0 = 5;
+		double x0 = 5;
+		double y0 = 5;
+		double z0 = 3;
 		pangolin::OpenGlRenderState s_cam;
 	
 		void setup() {
@@ -43,7 +45,7 @@ class Display_Pangolin {
 			glEnable(GL_DEPTH_TEST);
 			s_cam = pangolin::OpenGlRenderState(
 					pangolin::ProjectionMatrix(w, h, p0, p0, w/2, h/2, 0.01, 10000),
-					pangolin::ModelViewLookAt(0,0,z0,0,0,0,up_x,up_y,up_z));
+					pangolin::ModelViewLookAt(x0,y0,z0,x0,y0,0,up_x,up_y,up_z));
 			pangolin::Handler3D handler(s_cam);
 			pangolin::View& d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, 0.0, 1.0, w/h).SetHandler(&handler);
 		};
@@ -53,25 +55,60 @@ class Display_Pangolin {
 		Display_Pangolin(const double &_w, const double &_h, const double &_F, const std::string &_s) : w(_w), h(_h), wind_name(_s), p0(_F) {setup();};
 
 		void draw_tree(RRT *__rrt) {
-			std::unordered_map<int, std::vector<int>> adj_list_ = *__rrt->graph();
-			std::unordered_map<int, int> gid2nid_map_ = __rrt->gid2nid_map();
-			std::unordered_map<int, NodePtr> nid2n_map_ = __rrt->nid2n_map();
-			for (int i=0; i<adj_list_.size(); i++) {
-				NodePtr src = nid2n_map_[gid2nid_map_[i]];
-				for (int e_id : adj_list_[i]) {
-					NodePtr dst = nid2n_map_[gid2nid_map_[e_id]];
+			std::unordered_map<int, std::vector<int>> graphA = *__rrt->graph();
+			std::unordered_map<int, int> gid2nid_mapA = __rrt->gid2nid_map();
+			std::unordered_map<int, NodePtr> nid2n_mapA = __rrt->nid2n_map();
+			for (int i=0; i<graphA.size(); i++) {
+				NodePtr src = nid2n_mapA[gid2nid_mapA[i]];
+				for (int e_id : graphA[i]) {
+					NodePtr dst = nid2n_mapA[gid2nid_mapA[e_id]];
 					glColor3f(1.f,0.f,0.f);
 					glPointSize(3.f);
 					draw_edge(src, dst);
 				}
 			}
-		}		
+		}
+
+		void draw_tree(BRRTStar *__rrt) {
+			std::unordered_map<int, std::vector<int>> graphA, graphB;
+			std::unordered_map<int, int> gid2nid_mapA, gid2nid_mapB;
+			std::unordered_map<int, NodePtr> nid2n_mapA, nid2n_mapB; 
+			graphA = *__rrt->graph();
+			graphB = *__rrt->graphB();
+			gid2nid_mapA = __rrt->gid2nid_map();
+			gid2nid_mapB = __rrt->gid2nid_mapB();
+			nid2n_mapA = __rrt->nid2n_map();
+			nid2n_mapB = __rrt->nid2n_mapB();
+			
+			for (int i=0; i<graphA.size(); i++) {
+				NodePtr src = nid2n_mapA[gid2nid_mapA[i]];
+				for (int e_id : graphA[i]) {
+					NodePtr dst = nid2n_mapA[gid2nid_mapA[e_id]];
+					glColor3f(1.f,0.2f,0.2f);
+					glLineWidth(2.f);
+					draw_edge(src, dst);
+				}
+			}
+			
+			for (int i=0; i<graphB.size(); i++) {
+				NodePtr src = nid2n_mapB[gid2nid_mapB[i]];
+				for (int e_id : graphB[i]) {
+					NodePtr dst = nid2n_mapB[gid2nid_mapB[e_id]];
+					glColor3f(0.2f,1.f,1.f);
+					glLineWidth(2.f);
+					draw_edge(src, dst);
+				}
+			}
+		}
+
+
 		void draw_point(const NodePtr &__n) {
 			glVertex3f(__n->val(0), __n->val(1), 0);
 		}
 		void draw_obstacles(std::vector<ObsPtr> &_obstacles) {
 			for (ObsPtr &_obs : _obstacles) {
-				glColor3f(1.0f,0.2f,1.0f);
+				glColor3f(1.0f,0.0f,0.0f);
+				glLineWidth(2.f);
 				draw_circle(_obs->pos(0), _obs->pos(1), 0.f, _obs->rad());
 			}
 		}
@@ -81,19 +118,19 @@ class Display_Pangolin {
 				float y1 = _pred_states.col(j-1)(1);
 				float x2 = _pred_states.col(j)(0);
 				float y2 = _pred_states.col(j)(1);
-				glColor3f(0.f,0.3f,0.1f);
-				glPointSize(15.f);
+				glColor3f(1.f,1.f,0.4f);
+				glLineWidth(4.f);
 				glBegin(GL_LINES);
 				glVertex3f(x1, y1, 0);
 				glVertex3f(x2, y2, 0);
 				glEnd();
 			}
 		}
-		void render(RRT *__rrt, const std::vector<NodePtr> *__path, std::vector<ObsPtr> &_obstacles) {
+		void render(BRRTStar *__rrt, const std::vector<NodePtr> *__path, std::vector<ObsPtr> &_obstacles) {
 			glEnable(GL_DEPTH_TEST);
 			s_cam = pangolin::OpenGlRenderState(
 					pangolin::ProjectionMatrix(w, h, p0, p0, w/2, h/2, 0.01, 10000),
-					pangolin::ModelViewLookAt(0,0,z0,0,0,0,up_x,up_y,up_z));
+					pangolin::ModelViewLookAt(x0,y0,z0,x0,y0,0,up_x,up_y,up_z));
 			pangolin::Handler3D handler(s_cam);
 			pangolin::View& d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, 0.0, 1.0, w/h).SetHandler(&handler);
 			glClearColor(0.9f,0.9f,0.9f,0.5f);
@@ -107,13 +144,14 @@ class Display_Pangolin {
 			pangolin::FinishFrame();
 		}
 
-		void render(RRT *__rrt, const std::vector<NodePtr> *__path, const std::vector<Vec4f> &_trajectory, const Vec4f &_state, const MatXf &_pred_states, std::vector<ObsPtr> &_obstacles) {
+		void render(BRRTStar *__rrt, const std::vector<NodePtr> *__path, const std::vector<Vec4f> &_trajectory, const Vec4f &_state, const MatXf &_pred_states, std::vector<ObsPtr> &_obstacles) {
 			glEnable(GL_DEPTH_TEST);
 			s_cam = pangolin::OpenGlRenderState(
 					pangolin::ProjectionMatrix(w, h, p0, p0, w/2, h/2, 0.01, 10000),
-					pangolin::ModelViewLookAt(0,0,z0,0,0,0,up_x,up_y,up_z));
+					pangolin::ModelViewLookAt(x0,y0,z0,x0,y0,0,up_x,up_y,up_z));
 			pangolin::Handler3D handler(s_cam);
 			pangolin::View& d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, 0.0, 1.0, w/h).SetHandler(&handler);
+			glClearColor(0.7f,0.7f,0.7f,0.5f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			d_cam.Activate(s_cam);
 			draw_path(__path);
