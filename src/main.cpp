@@ -1,41 +1,50 @@
 #include <iostream>
-//#include "kdtree.hpp"
 #include "rrt.hpp"
 #include "optimizer.hpp"
 #include "display.hpp"
 
 int Node::MAXID = 0;
+int Obs::MAXID = 0;
 
 int main(int argc, char* argv[]) {
-	int N = 30;
+	int N = 20;
+	int n_obs = 20;
+	float scanner_range = 10.f;
 	int RRT_ITER_MAX = 1000;
 	float ts = 0.03333333f;
 	//float ts = 0.01666666f;//0.05f;
 	float lr = 1.738f;
 	float v_i = 0.f;
-	float head_i = deg_to_rad(45);
+	float head_i = deg_to_rad(45);	
+	float obs_max_bounds[6] {-7.5f,27.5f,-7.5f,27.5f,-0.4f,0.4f};
+
 	Vec4f state_init {0.f, 0.f, v_i, head_i};
 	RowVec2f v_init {0.f, 0.f};
 	RowVec2f v_dest {15.f, 15.f};
+	Display_Pangolin *dp = new Display_Pangolin(1920,1080,"s");
+	
+	World *world = new World();
+	KF *kf = new KF();
+	Li_Radar *scanner = new Li_Radar(scanner_range);
+	ObjetFactory *factory = new ObjetFactory();
+	factory->createNObstacles(n_obs, obs_max_bounds, world->obstacles());
+	/*
 	RowVec2f op0 = {5,-4};
 	RowVec2f op1 = {10,3};
 	RowVec2f op2 = {8,11};
 	RowVec2f op3 = {3,10};
 	RowVec2f op4 = {15,20};
 	RowVec2f op5 = {5,5};
-	Display_Pangolin *dp = new Display_Pangolin(1920,1080,"s");
-	
-	std::vector<ObsPtr> obstacles;
-	ObjetFactory *factory = new ObjetFactory();
+	//std::vector<ObsPtr> obstacles;
 	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op0, 1.f, obstacles, Objet::Behaviour::VERT);
 	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op1, 1.f, obstacles, Objet::Behaviour::VERT);
 	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op2, 1.f, obstacles, Objet::Behaviour::HORZ);
 	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op3, 1.f, obstacles, Objet::Behaviour::DIAG);
 	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op4, 1.f, obstacles, Objet::Behaviour::NEGDIAG);
 	factory->createObstacle(Objet::Shape::CIRCLE, Objet::Type::DYNAMIC, op5, 1.f, obstacles, Objet::Behaviour::DIAG);
-
-
 	int n_obs = obstacles.size();
+	*/
+
 	/*
 	RRTStar *rrt = new RRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
 	while (rrt->build_status()!=RRT::Status::REACHED) {
@@ -44,11 +53,11 @@ int main(int argc, char* argv[]) {
 		rrt = new RRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
 	}
 	*/
-	BRRTStar *rrt = new BRRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
+	BRRTStar *rrt = new BRRTStar(v_init, v_dest, world->obstacles(), RRT_ITER_MAX);
 	while (rrt->build_status()!=RRT::Status::REACHED) {
 		delete rrt;
 		std::cout<<"reinstantiating rrtstar\n";
-		rrt = new BRRTStar(v_init, v_dest, &obstacles, RRT_ITER_MAX);
+		rrt = new BRRTStar(v_init, v_dest, world->obstacles(), RRT_ITER_MAX);
 	}
 	std::vector<NodePtr> path_ = *rrt->path();
 	Optimizer *opt = new Optimizer(N, ts, lr);
@@ -59,10 +68,15 @@ int main(int argc, char* argv[]) {
 	
 	Vec4f state = state_init;
 	Vec2f pi = state.block(0,0,2,1);
-	Vec2f pf {45.f, 45.f};
+	Vec2f pf {15.f, 15.f};
 	int prev = 0;
 
+	std::unordered_map<int, Vec4f> *xm;
+
 	while (!pangolin::ShouldQuit()) {
+		if (!rrt->collision_free(pi))
+			break;
+		std::vector<ObsPtr> obstacles_in_range;
 		if (path_.size() < N+1) {
 			delete opt;
 			prev = path_.size()-1;
@@ -72,16 +86,23 @@ int main(int argc, char* argv[]) {
 			prev = N;
 			opt = new Optimizer(N, ts, lr);
 		}
-		opt->optimize(state, &path_, obstacles);
+		scanner->scan(pi, world->obstacles(), obstacles_in_range);
+		xm = kf->update_recursive(obstacles_in_range, scanner);
+		opt->optimize(state, &path_, obstacles_in_range, xm);
 		Vec2f u_opt = opt->input_opt();
-		for (ObsPtr &__obs : obstacles) {
-			__obs->update();
-		}
+		world->update();
 		state = vehicle->update(u_opt);	
 		pi = state.block(0,0,2,1);
 		trajectory.push_back(state);
+		// BRRT Star Testing
 		path_ = rrt->update(pi);
-		dp->render(rrt, &path_, trajectory, state, opt->pred_states(), obstacles);
+		// RRT Star Testing 
+		//rrt->update(pi);
+		//path_ = *rrt->path();
+		dp->render(rrt, &path_, trajectory, state, opt->pred_states(), world->obstacles(), scanner_range, kf);
+	}
+	while (!pangolin::ShouldQuit()) {
+		dp->render(rrt, &path_, trajectory, state, opt->pred_states(), world->obstacles(), scanner_range, kf);
 	}
 	return 0;
 }

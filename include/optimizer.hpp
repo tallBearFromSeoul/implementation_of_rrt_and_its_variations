@@ -1,4 +1,5 @@
 #include <cppad/ipopt/solve.hpp>
+#include "kf.hpp"
 
 typedef Eigen::Vector2f Vec2f;
 typedef Eigen::Matrix<float, 4, 2> Mat42f;
@@ -19,37 +20,40 @@ inline float steer_to_beta(float __rad) {
 
 namespace {
 	using CppAD::AD;
+	const float COL_THRESH = 0.5f;
 	int N;
 	double P = 10;
 	double Q = 1.0;
-	double R = 0.5;
-	double S = 200.0;
+	double R = 1.0;
+	double S = 500.0;
 	// assuming 60 Hz
 	double dt = 0.03333333;
 	//double dt = 0.01666666;//0.025;
 	double lr = 1.738;
 	//double x0U = 20.;
-	double x2U = 12.;
+	double x2U = 13.;
 	float PI = 3.145927;
-	double x3U = deg_to_rad(125);//PI*0.6f;
+	double x3U = deg_to_rad(135);//PI*0.6f;
 	double u0U = 0.7;
-	double u1U = 0.2;
+	double u1U = 0.3;
 	Vec4f state_init;
 	std::vector<NodePtr> zref;
 	std::vector<ObsPtr> obstacles;
 	int n_Sobs, n_Dobs;
+	std::unordered_map<int, Vec4f> *xm;
 
 	class FG_eval {
 		private:
 		public:
 			
-			FG_eval(int _time_horizon, float _dt, float _lr, const Vec4f &_state_init, std::vector<NodePtr> *_zref, std::vector<ObsPtr> &_obstacles) {
+			FG_eval(int _time_horizon, float _dt, float _lr, const Vec4f &_state_init, std::vector<NodePtr> *_zref, std::vector<ObsPtr> &_obstacles, std::unordered_map<int, Vec4f> *__xm) {
 				N=_time_horizon;
 				dt = _dt;
 				lr = _lr;
 				state_init = _state_init;
 				zref = *_zref;
-				
+				xm = __xm;
+
 				n_Sobs = 0;
 				n_Dobs = 0;
 				obstacles = _obstacles;
@@ -74,7 +78,9 @@ namespace {
 					int px = i*6;
 					int pu = i*4;
 					int pz = i < zref.size() ? i : zref.size()-1;
-					fg[0] += CppAD::pow(zref[pz]->val(0)-x[px],2)*P + CppAD::pow(zref[pz]->val(1)-x[px+1], 2)*P + CppAD::pow(x[pu], 2)*Q + CppAD::pow(x[pu+1], 2)*R;
+					AD<double> zero(0.);
+					AD<double> accel = CppAD::CondExpLt(x[pu+1],zero,zero,x[pu+1]);
+					fg[0] += CppAD::pow(zref[pz]->val(0)-x[px],2)*P + CppAD::pow(zref[pz]->val(1)-x[px+1], 2)*P + x[pu]*x[pu]*Q + accel*accel*R;
 				}
 				fg[0] += CppAD::pow(zref.back()->val(0)-x[6*N],2)*S + CppAD::pow(zref.back()->val(1)-x[6*N+1],2)*S;
 
@@ -143,12 +149,14 @@ namespace {
 					for (int i=0; i<N+1; i++) {
 						int px = i*6;
 						// this is correct
-						int pf = 4*N+1 + j*(N+1) + i;
-						AD<double> obs_x = obstacles[j]->pos(0);
-						AD<double> obs_y = obstacles[j]->pos(1);
+						int pf = 4*N+1 + j*(N+1) + i;					
+						int obs_id = obstacles[j]->id();
+						Vec4f state = xm->at(obs_id);
+						AD<double> obs_x = state(0);
+						AD<double> obs_y = state(1);
 						AD<double> dx = x[px]-obs_x;
 						AD<double> dy = x[px+1]-obs_y;
-						//fg[pf] = CppAD::abs(dx)-obstacles[j]->rad() + CppAD::abs(dy)-obstacles[j]->rad();
+						
 						fg[pf] = CppAD::pow(dx, 2) + CppAD::pow(dy, 2);
 					}
 				}
@@ -173,7 +181,7 @@ class Optimizer {
 		MatXf inputs() {return _inputs;};
 		Vec2f input_opt() {return _inputs.col(0);};
 
-		bool optimize(const Vec4f &_state_init, std::vector<NodePtr> *_path, std::vector<ObsPtr> &_obstacles) {
+		bool optimize(const Vec4f &_state_init, std::vector<NodePtr> *_path, std::vector<ObsPtr> &_obstacles, std::unordered_map<int, Vec4f> *__xm) {
 			bool ok = true;
 			typedef CPPAD_TESTVECTOR(double) Dvector;
 			int _n_Sobs = 0;
@@ -234,8 +242,7 @@ class Optimizer {
 			for (int j=0; j<_n_Sobs+_n_Dobs; j++) {
 				for (int i=0; i<_N+1; i++) {
 					int p = 4*_N + j*(_N+1) + i;
-					gl[p] = CppAD::pow(_obstacles[j]->rad(),2);
-					//gl[p] = 0.0;
+					gl[p] = CppAD::pow(_obstacles[j]->rad(),2) + COL_THRESH;
 					gu[p] = 1e13;
 				}
 			}
@@ -253,7 +260,7 @@ class Optimizer {
 			// Pages 25-57, Equation (6)
 			options += "Numeric tol         1e-4\n";
 			//1e-6
-			FG_eval fg_eval(_N, _ts, _lr, _state_init, _path, _obstacles);
+			FG_eval fg_eval(_N, _ts, _lr, _state_init, _path, _obstacles, __xm);
 			CppAD::ipopt::solve_result<Dvector> solution;
 			CppAD::ipopt::solve<Dvector, FG_eval>(options, xi, xl, xu, gl, gu, fg_eval, solution);
 			ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;

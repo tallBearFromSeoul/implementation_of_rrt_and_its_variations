@@ -10,10 +10,8 @@ class Graph {
 		std::unordered_map<int, NodePtr> _nid2n_map;
 		std::unordered_map<int, int> _gid2pgid_map;
 		std::vector<NodePtr> _path;
-		std::vector<NodePtr> _root_path;
 		std::vector<NodePtr> _path_B;
 		bool _path_found = false;
-		bool _root_found = false;
 		bool _path_B_found = false;
 		int _n_nodes=0;
 		int _n_edges=0;
@@ -89,56 +87,6 @@ class Graph {
 		}
 		for (int gid_e : _adj_list[s_id]) {
 			dfs_path_B_helper(_nid2n_map[_gid2nid_map[gid_e]], __dst, path__);
-			}
-		}
-
-		NodePtr dfs_root_finder(const NodePtr &__n_cur, const std::vector<NodePtr> &__nbs, const NodePtr &__dst) {
-			for (const NodePtr &__nb : __nbs) {
-				_root_found = false;
-				std::vector<NodePtr> __path;
-				dfs_root_finder_helper(__nb, __dst, __path);
-				if (_root_found) {
-					add_edge(__n_cur, __nb);
-					_root_path.insert(_root_path.begin(), __n_cur);
-					return __nb;
-				}
-			}
-			return nullptr;
-		}
-
-		void dfs_root_finder_helper(const NodePtr &__src, const NodePtr &__dst, std::vector<NodePtr> __path) {
-			if (_root_found) 
-				return;
-			if (__src == nullptr)
-				return;
-			int s_id = _nid2gid_map[__src->id()];
-			__path.push_back(__src);
-			if (__src == __dst) {
-				_root_path = __path;
-				_root_found = true;
-				return;
-			}
-			for (int gid_e : _adj_list[s_id]) {
-				dfs_root_finder_helper(_nid2n_map[_gid2nid_map[gid_e]], __dst, __path);
-			}
-		}
-
-		void dfs_leaves(const std::vector<NodePtr> &__nbs, std::vector<NodePtr> &leaves__) {
-			for (const NodePtr &__nb : __nbs) {
-				dfs_leaves(__nb, leaves__);
-			}
-		}
-		
-		void dfs_leaves(const NodePtr &__nb, std::vector<NodePtr> &leaves__) {
-			int gid_nb = _nid2gid_map.at(__nb->id());
-			for (int __gid_e : _adj_list.at(gid_nb)) {
-				int nid = _gid2nid_map[__gid_e];
-				NodePtr n = _nid2n_map[nid];
-				if (n->is_leaf()) {
-					leaves__.push_back(n);
-				} else {
-					dfs_leaves(n, leaves__);
-				}
 			}
 		}
 

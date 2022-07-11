@@ -28,11 +28,8 @@ class Node {
 		Node() {};
 		Node(const NodePtr &__node) : _val(__node->val()) {_dims=_val.cols();};
 		Node(const RowVecXf &__val) : _val(__val) {_id=MAXID++;_dims=_val.cols();};
-		virtual void report() {
-			std::cout<<"[Node id, val] : ["<<id()<<" , "<<val()<<"]\n";			
-		}
+		
 };
-
 
 class TreeNode : public Node {
 	typedef std::shared_ptr<TreeNode> TreeNodePtr;

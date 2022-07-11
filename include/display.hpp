@@ -2,8 +2,8 @@
 #include <pangolin/display/display.h>
 #include <pangolin/display/view.h>
 #include <pangolin/handler/handler.h>
-//#include <pangolin/gl/gldraw.h>
 #include <Eigen/Dense>
+#include "kf.hpp"
 
 class Node;
 class Obs;
@@ -69,6 +69,45 @@ class Display_Pangolin {
 			}
 		}
 
+		template<typename T>
+		void render(T *__rrt, const std::vector<NodePtr> *__path, const std::vector<Vec4f> &__trajectory, const Vec4f &__state, const MatXf &__pred_states, std::vector<ObsPtr> *__obstacles, float __scanner_range, KF *__kf) {
+			glEnable(GL_DEPTH_TEST);
+			s_cam = pangolin::OpenGlRenderState(
+					pangolin::ProjectionMatrix(w, h, p0, p0, w/2, h/2, 0.01, 10000),
+					pangolin::ModelViewLookAt(x0,y0,z0,x0,y0,0,up_x,up_y,up_z));
+			pangolin::Handler3D handler(s_cam);
+			pangolin::View& d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, 0.0, 1.0, w/h).SetHandler(&handler);
+			glClearColor(0.7f,0.7f,0.7f,0.5f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			d_cam.Activate(s_cam);
+			draw_path(__path);
+			draw_tree(__rrt);
+			draw_obstacles(*__obstacles);
+			draw_scanner_range(__state, __scanner_range);
+			draw_vehicle(__state);
+			draw_predictions(__pred_states);
+			draw_trajectory(__trajectory);
+			pangolin::FinishFrame();
+		}
+
+		void render(RRTStar *__rrt, const std::vector<NodePtr> *__path, std::vector<ObsPtr> &_obstacles) {
+			glEnable(GL_DEPTH_TEST);
+			s_cam = pangolin::OpenGlRenderState(
+					pangolin::ProjectionMatrix(w, h, p0, p0, w/2, h/2, 0.01, 10000),
+					pangolin::ModelViewLookAt(x0,y0,z0,x0,y0,0,up_x,up_y,up_z));
+			pangolin::Handler3D handler(s_cam);
+			pangolin::View& d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, 0.0, 1.0, w/h).SetHandler(&handler);
+			glClearColor(0.9f,0.9f,0.9f,0.5f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			d_cam.Activate(s_cam);
+			draw_path(__path);
+			glColor3f(0.3f,0.3f,0.7f);
+			draw_tree(__rrt);
+			glColor3f(0.5f,0.2f,0.8f);
+			draw_obstacles(_obstacles);
+			pangolin::FinishFrame();
+		}
+
 		void draw_tree(BRRTStar *__rrt) {
 			std::unordered_map<int, std::vector<int>> graphA, graphB;
 			std::unordered_map<int, int> gid2nid_mapA, gid2nid_mapB;
@@ -101,16 +140,21 @@ class Display_Pangolin {
 			}
 		}
 
-
 		void draw_point(const NodePtr &__n) {
 			glVertex3f(__n->val(0), __n->val(1), 0);
 		}
+
 		void draw_obstacles(std::vector<ObsPtr> &_obstacles) {
 			for (ObsPtr &_obs : _obstacles) {
 				glColor3f(1.0f,0.0f,0.0f);
-				glLineWidth(2.f);
+				glLineWidth(6.f);
 				draw_circle(_obs->pos(0), _obs->pos(1), 0.f, _obs->rad());
 			}
+		}
+		void draw_scanner_range(const Vec4f &__state, float __scanner_range) {
+			glColor3f(0.8f,0.3f,0.f);
+			glLineWidth(10.f);
+			draw_circle(__state(0),__state(1),0.f,__scanner_range);
 		}
 		void draw_predictions(const MatXf &_pred_states) {
 			for (int j=1; j<_pred_states.cols(); j++) {
@@ -126,43 +170,6 @@ class Display_Pangolin {
 				glEnd();
 			}
 		}
-		void render(BRRTStar *__rrt, const std::vector<NodePtr> *__path, std::vector<ObsPtr> &_obstacles) {
-			glEnable(GL_DEPTH_TEST);
-			s_cam = pangolin::OpenGlRenderState(
-					pangolin::ProjectionMatrix(w, h, p0, p0, w/2, h/2, 0.01, 10000),
-					pangolin::ModelViewLookAt(x0,y0,z0,x0,y0,0,up_x,up_y,up_z));
-			pangolin::Handler3D handler(s_cam);
-			pangolin::View& d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, 0.0, 1.0, w/h).SetHandler(&handler);
-			glClearColor(0.9f,0.9f,0.9f,0.5f);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			d_cam.Activate(s_cam);
-			draw_path(__path);
-			glColor3f(0.3f,0.3f,0.7f);
-			draw_tree(__rrt);
-			glColor3f(0.5f,0.2f,0.8f);
-			draw_obstacles(_obstacles);
-			pangolin::FinishFrame();
-		}
-
-		void render(BRRTStar *__rrt, const std::vector<NodePtr> *__path, const std::vector<Vec4f> &_trajectory, const Vec4f &_state, const MatXf &_pred_states, std::vector<ObsPtr> &_obstacles) {
-			glEnable(GL_DEPTH_TEST);
-			s_cam = pangolin::OpenGlRenderState(
-					pangolin::ProjectionMatrix(w, h, p0, p0, w/2, h/2, 0.01, 10000),
-					pangolin::ModelViewLookAt(x0,y0,z0,x0,y0,0,up_x,up_y,up_z));
-			pangolin::Handler3D handler(s_cam);
-			pangolin::View& d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, 0.0, 1.0, w/h).SetHandler(&handler);
-			glClearColor(0.7f,0.7f,0.7f,0.5f);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			d_cam.Activate(s_cam);
-			draw_path(__path);
-			draw_tree(__rrt);
-			draw_obstacles(_obstacles);
-			draw_vehicle(_state);
-			draw_predictions(_pred_states);
-			draw_trajectory(_trajectory);
-			pangolin::FinishFrame();
-		}
-
 		void draw_circle(float _x, float _y, float _z, float _r) {
 			glBegin(GL_LINE_LOOP);
 			for (int ii=0; ii < 32; ii++) {

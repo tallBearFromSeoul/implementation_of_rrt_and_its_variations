@@ -14,7 +14,8 @@ class RRT : public kdTree, public Graph {
 	protected:
 		const float PI = 3.145927;
 		const float DEST_THRESH = 0.5f;
-		const float COL_THRESH = 0.1f;
+		const float COL_THRESH = 0.3f;
+		const float INIT_OFFSET = 0.f;
 		const float DEST_OFFSET = 0.f;
 		float SPEED_LIMIT = 1.0f;
 		float STEER_LIMIT = 35.f;//40.f
@@ -22,7 +23,6 @@ class RRT : public kdTree, public Graph {
 		std::random_device _rd;
 		std::mt19937 _gen;
 		std::uniform_real_distribution<float> _uni_dis, _uni_dis_x, _uni_dis_y;
-		std::normal_distribution<float> _norm_dis;
 		std::vector<ObsPtr> *_obstacles;
 		RowVec2f _v_init, _v_dest, _v_diff, _v_mid;
 		Status _build_status=Status::NONE;
@@ -34,10 +34,8 @@ class RRT : public kdTree, public Graph {
 			_v_mid = (_v_dest + _v_init) / 2.f;
 			_gen = std::mt19937(_rd());
 			_uni_dis = std::uniform_real_distribution<float>(-1.0,1.0);
-			_uni_dis_x = std::uniform_real_distribution<float>(std::min(_v_init(0),_v_dest(0)), std::max(_v_init(0),_v_dest(0))+DEST_OFFSET);
-			_uni_dis_y = std::uniform_real_distribution<float>(std::min(_v_init(1),_v_dest(1)), std::max(_v_init(1),_v_dest(1))+DEST_OFFSET);
-
-			_norm_dis = std::normal_distribution<float>(0.f, 0.25f);
+			_uni_dis_x = std::uniform_real_distribution<float>(std::min(_v_init(0),_v_dest(0))-INIT_OFFSET, std::max(_v_init(0),_v_dest(0))+DEST_OFFSET);
+			_uni_dis_y = std::uniform_real_distribution<float>(std::min(_v_init(1),_v_dest(1))-INIT_OFFSET, std::max(_v_init(1),_v_dest(1))+DEST_OFFSET);
 		};
 		
 		RRT(const RowVec2f &__v_init, const RowVec2f &__v_dest, std::vector<ObsPtr> *__obstacles, int __k) : _v_init(__v_init), _v_dest(__v_dest), kdTree(__v_init.cols()), _obstacles(__obstacles) {
@@ -46,9 +44,8 @@ class RRT : public kdTree, public Graph {
 			_v_mid = (_v_dest + _v_init) / 2.f;
 			_gen = std::mt19937(_rd());
 			_uni_dis = std::uniform_real_distribution<float>(-1.0,1.0);
-			_uni_dis_x = std::uniform_real_distribution<float>(std::min(_v_init(0),_v_dest(0)), std::max(_v_init(0),_v_dest(0))+DEST_OFFSET);
-			_uni_dis_y = std::uniform_real_distribution<float>(std::min(_v_init(1),_v_dest(1)), std::max(_v_init(1),_v_dest(1))+DEST_OFFSET);
-			_norm_dis = std::normal_distribution<float>(0.f, 0.25f);
+			_uni_dis_x = std::uniform_real_distribution<float>(std::min(_v_init(0),_v_dest(0))-INIT_OFFSET, std::max(_v_init(0),_v_dest(0))+DEST_OFFSET);
+			_uni_dis_y = std::uniform_real_distribution<float>(std::min(_v_init(1),_v_dest(1))-INIT_OFFSET, std::max(_v_init(1),_v_dest(1))+DEST_OFFSET);
 			_build_status = build(__k);
 		};
 		virtual Status build(int __k) {
@@ -93,8 +90,11 @@ class RRT : public kdTree, public Graph {
 		}
 		
 		bool collision_free(const NodePtr &__n) {
+			Vec2f __v = __n->val().transpose();
+			return collision_free(__v);
+		}
+		bool collision_free(const Vec2f &__v) {
 			bool res = true;
-			RowVec2f __v = __n->val();
 			for (int i=0; i<_obstacles->size(); i++) {
 				res &= _obstacles->at(i)->collision_free(__v, COL_THRESH);
 			}
@@ -124,7 +124,7 @@ class RRT : public kdTree, public Graph {
 		NodePtr new_biased_config(const RowVec2f &__v_near) {
 			RowVec2f diff_normal = _v_dest-__v_near;
 			diff_normal.normalize();
-			float theta = (1-_norm_dis(_gen)) * STEER_LIMIT*1.5;
+			float theta = (1-_uni_dis(_gen)) * STEER_LIMIT*1.5;
 			Vec2f rotated = rotate(deg_to_rad(theta))*diff_normal.transpose();
 			RowVec2f new_v = __v_near + SPEED_LIMIT*rotated.transpose();
 			return std::make_shared<Node>(new_v);
@@ -331,42 +331,6 @@ class RRTStar : public RRT {
 			insert(_kd_root, n_cur);
 			if (_path_found)
 				return Status::REACHED;
-			/*
-			if (!_path_found) {
-				std::cerr<<"update() : -> NO_PATH_ERROR\n";
-				NodePtr n_new;
-				std::vector<NodePtr> nbs_new;
-				while (nbs_new.size() == 0) {
-					n_new = new_config(last_node->val());
-					if (!collision_free(n_new))
-						continue;
-					add_edge(last_node, n_new);
-					
-					insert(_kd_root, n_new);
-					_nid2cost_map[n_new->id()] = _nid2cost_map[last_node->id()] + (last_node->val()-n_new->val()).norm();
-					nbs_new = neighbors(n_new, NEIGH_THRESH);
-					if (nbs_new.size() == 0) {
-						NodePtr n_new_near = nearest(n_new->val());
-						nbs_new = {n_new_near};
-					}
-					rewire(nbs_new, last_node, n_new); 
-					last_node = n_new;
-				}
-			}
-			*/
-			/*
-			for (const NodePtr &__nb : nbs) {
-				last_node = n_cur;	
-				for (int i=0; i<REBUILD_ITER_MAX; i++) {
-					RowVec2f v_rand = random_config(last_node);
-					status = extend(v_rand, last_node, latest_status, __nb, true);
-					latest_status = status;
-					if (status == RRT::Status::REACHED) {
-						return status;
-					}
-				}	
-			}
-			*/
 			return latest_status;
 		}
 
@@ -471,7 +435,7 @@ class BRRTStar : public RRTStar {
 				std::pair<std::vector<NodePtr>, float> c_path = connect(n_new, n_connect, kdrootB__, kdtreeB__, graphA__, graphB__, costmapA__, costmapB__);	
 				if (c_path.second < _b_path.second) {
 					_b_path = c_path;
-					_root_path = c_path.first;
+					_path = c_path.first;
 				}
 				if (_b_path.second != std::numeric_limits<float>::max())
 					latest_status = Status::REACHED;
@@ -532,8 +496,6 @@ class BRRTStar : public RRTStar {
 		}
 	
 		std::vector<NodePtr> dfs_connect(const NodePtr &__n_cur, const std::vector<NodePtr> &__nbs_B, Graph *__graphA, Graph *__graphB, kdTree *__kdtreeB, std::unordered_map<int, float> *__nid2cost_mapA, std::unordered_map<int, float> *__nid2cost_mapB) {
-			_root_path.clear();
-			_root_path = {};
 			float c_min = std::numeric_limits<float>::max();
 			NodePtr best_nb_B;
 			for (const NodePtr &__nb : __nbs_B) {
