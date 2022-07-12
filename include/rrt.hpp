@@ -14,7 +14,7 @@ class RRT : public kdTree, public Graph {
 	protected:
 		const float PI = 3.145927;
 		const float DEST_THRESH = 0.5f;
-		const float COL_THRESH = 0.3f;
+		const float COL_THRESH = 0.1f;
 		const float INIT_OFFSET = 0.f;
 		const float DEST_OFFSET = 0.f;
 		float SPEED_LIMIT = 1.0f;

@@ -110,9 +110,10 @@ class Obs : public Objet {
 		std::uniform_real_distribution<float> _uni_dis_x;
 		std::uniform_real_distribution<float> _uni_dis_y;
 		std::uniform_real_distribution<float> _uni_dis_vel;
+		std::uniform_real_distribution<float> _uni_dis_p;
 
 		float _rad;
-		float _dt = 0.0333f;
+		float _dt = 0.03333333f;
 		RowVec2f _pos;
 		RowVec2f _E;
 		RowVec2f _vel;
@@ -145,10 +146,17 @@ class Obs : public Objet {
 			_uni_dis_x = std::uniform_real_distribution<float>(x_l, x_u);
 			_uni_dis_y = std::uniform_real_distribution<float>(y_l, y_u);
 			_uni_dis_vel = std::uniform_real_distribution<float>(v_l, v_u);
-			
+			_uni_dis_p = std::uniform_real_distribution<float>(0.f, 1.f);
+
 			_pos(0) = _uni_dis_x(_gen);
 			_pos(1) = _uni_dis_y(_gen);
-			_vel = RowVec2f::NullaryExpr(1,2,[&](){return _uni_dis_vel(_gen);});
+			_vel = RowVec2f::NullaryExpr(1,2,[&](){
+					if (_uni_dis_p(_gen) > 0.5f)
+						return _uni_dis_vel(_gen);
+					else
+						return -_uni_dis_vel(_gen);
+			});
+			//_vel = RowVec2f::NullaryExpr(1,2,[&](){return _norm_dis_vel(_gen);});
 		}
 
 		void update() {
@@ -216,8 +224,8 @@ class Li_Radar {
 			//_cov = Mat4f::Zero();
 			_cov << 0.02f,0.f,0.f,0.f,
 							0.f,0.02f,0.f,0.f,
-							0.f,0.f,0.015f,0.f,
-							0.f,0.f,0.f,0.015f;
+							0.f,0.f,0.005f,0.f,
+							0.f,0.f,0.f,0.005f;
 			_sensor_noise = new GRV(_mu, _cov);
 		}
 
