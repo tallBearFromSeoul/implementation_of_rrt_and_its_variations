@@ -29,8 +29,8 @@ class KF {
 			_mu = Vec4f::Zero();
 			_cov << 0.015f,0.f,0.f,0.f,
 					 		0.f,0.015f,0.f,0.f,
-							0.f,0.f,0.001f,0.f,
-							0.f,0.f,0.f,0.001f;
+							0.f,0.f,0.00f,0.f,
+							0.f,0.f,0.f,0.00f;
 			_A << 1.f,0.f,dt,0.f,
 						0.f,1.f,0.f,dt,
 						0.f,0.f,1.f,0.f,
@@ -112,14 +112,6 @@ class KF {
 			else
 				_Pm[obs_id] = (I - K*_H) * Pp;
 			kf_output << obs_id<<","<<__obs->state().transpose()<<","<<zbar.transpose()<<","<<_xm[obs_id].transpose()<<","<<((_xm[obs_id] - __obs->state()).array()*100.f / __obs->state().array()).transpose()<<"\n";
-			std::cout<<"obs id :"<<obs_id<<"\n";
-			std::cout<<"true value : "<<__obs->state().transpose()<<"\n";
-			std::cout<<"measured value : "<<zbar.transpose()<<"\n";
-			std::cout<<"corrected value : "<<_xm[__obs->id()].transpose()<<"\n";
-			std::cout<<"differece (%) : "<<((_xm[__obs->id()] - __obs->state()).array()*100.f / __obs->state().array()).transpose()<<"\n";
-			std::cout<<"Pp : "<<Pp<<"\n\n";
-			std::cout<<"_H*Pp*_H.T :   "<<_H*Pp*_H.transpose()<<"\n";
-
 		}
 
 		// Recursion method
@@ -147,13 +139,6 @@ class KF {
 			_Pm[obs_id] = Pp - Pp*_H.transpose() * (_H*Pp*_H.transpose() + _cov).inverse() * _H*Pp;
 			
 			kf_output << obs_id<<","<<__obs->state().transpose()<<","<<zbar.transpose()<<","<<_xm[obs_id].transpose()<<","<<((_xm[obs_id] - __obs->state()).array()*100.f / __obs->state().array()).transpose()<<"\n";
-			std::cout<<"obs id :"<<obs_id<<"\n";
-			std::cout<<"true value : "<<__obs->state().transpose()<<"\n";
-			std::cout<<"measured value : "<<zbar.transpose()<<"\n";
-			std::cout<<"corrected value : "<<_xm[__obs->id()].transpose()<<"\n";
-			std::cout<<"differece (%) : "<<((_xm[__obs->id()] - __obs->state()).array()*100.f / __obs->state().array()).transpose()<<"\n";
-			std::cout<<"Pp : "<<Pp<<"\n\n";
-			std::cout<<"_H*Pp*_H.T :   "<<_H*Pp*_H.transpose()<<"\n";
 		}
 };
 #endif

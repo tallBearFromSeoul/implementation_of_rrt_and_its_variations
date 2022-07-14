@@ -222,10 +222,10 @@ class Li_Radar {
 		Li_Radar(float __range) : _range(__range) {
 			_mu = Vec4f::Zero();
 			//_cov = Mat4f::Zero();
-			_cov << 0.02f,0.f,0.f,0.f,
-							0.f,0.02f,0.f,0.f,
-							0.f,0.f,0.005f,0.f,
-							0.f,0.f,0.f,0.005f;
+			_cov << 0.04f,0.f,0.f,0.f,
+							0.f,0.04f,0.f,0.f,
+							0.f,0.f,0.001f,0.f,
+							0.f,0.f,0.f,0.001f;
 			_sensor_noise = new GRV(_mu, _cov);
 		}
 

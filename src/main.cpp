@@ -24,7 +24,9 @@ int main(int argc, char* argv[]) {
 	Display_Pangolin *dp = new Display_Pangolin(1920,1080,"s");
 	
 	World *world = new World();
-	KF *kf = new KF("kalman_joseph");
+	KF *kf_re = new KF("kalman_recursive");
+	KF *kf_ga = new KF("kalman_gain");
+	KF *kf_jo = new KF("kalman_joseph");
 	Li_Radar *scanner = new Li_Radar(scanner_range);
 	ObjetFactory *factory = new ObjetFactory();
 	factory->createNObstacles(n_obs, obs_max_bounds, world->obstacles());
@@ -50,7 +52,7 @@ int main(int argc, char* argv[]) {
 	Vec2f u_opt;
 	int prev = 0;
 
-	std::unordered_map<int, Vec4f> *xm;
+	std::unordered_map<int, Vec4f> *xm, *xm2, *xm3;
 	std::vector<ObsPtr> obstacles_in_range;
 	while (!pangolin::ShouldQuit()) {
 		obstacles_in_range.clear();
@@ -66,8 +68,10 @@ int main(int argc, char* argv[]) {
 			opt = new Optimizer(N, ts, lr);
 		}
 		scanner->scan(pi, world->obstacles(), obstacles_in_range);
-		xm = kf->update_kalman_gain(obstacles_in_range, scanner, true);
-		bool success = opt->optimize(state, &path_, obstacles_in_range, kf);
+		xm = kf_re->update_recursive(obstacles_in_range, scanner);
+		xm2 = kf_ga->update_kalman_gain(obstacles_in_range, scanner, false);
+		xm3 = kf_jo->update_kalman_gain(obstacles_in_range, scanner, true);
+		bool success = opt->optimize(state, &path_, obstacles_in_range, kf_jo);
 		u_opt = opt->input_opt();
 		if (!success) {
 			//std::cout<<"not success.. input opt is : "<<u_opt<<"\n";
@@ -82,10 +86,13 @@ int main(int argc, char* argv[]) {
 		// RRT Star Testing 
 		//rrt->update(pi);
 		//path_ = *rrt->path();
-		dp->render(success, N, rrt, &path_, trajectory, state, opt->pred_states(), world->obstacles(), &obstacles_in_range, scanner_range, kf);
+		dp->render(success, N, rrt, &path_, trajectory, state, opt->pred_states(), world->obstacles(), &obstacles_in_range, scanner_range, kf_jo);
 	}
+	kf_re->kf_output.close();
+	kf_ga->kf_output.close();
+	kf_jo->kf_output.close();
 	while (!pangolin::ShouldQuit()) {
-		dp->render(false, N, rrt, &path_, trajectory, state, opt->pred_states(), world->obstacles(), &obstacles_in_range, scanner_range, kf);
+		dp->render(false, N, rrt, &path_, trajectory, state, opt->pred_states(), world->obstacles(), &obstacles_in_range, scanner_range, kf_jo);
 	}
 	return 0;
 }
